@@ -9,9 +9,8 @@ from pydantic import BaseModel
 
 # mcp = FastMCP("web-search")
 # URL = "https://serpapi.com/search"
-from mcp.mcp_server import MCPServer
-
-server = MCPServer()
+from mcp_services.mcp_web_search_server import MCPWebSearchServer
+server = MCPWebSearchServer()
 load_dotenv()
 
 class SearchResult(BaseModel):
@@ -35,7 +34,7 @@ def refine_search_query(query: str) -> str:
         str: The refined medical search query optimized for SerpAPI.
     """
 
-    client = genai.Client(api_key="AIzaSyAYLsAGikd_pbdgJGHfsDABHuE76efHqLg")
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
     # Construct the prompt for Gemini, emphasizing medical context and SerpAPI optimization
     medical_refinement_prompt = (
@@ -72,10 +71,6 @@ def refine_search_query(query: str) -> str:
     except Exception as e:
         print(f"An error occurred while calling the Gemini API: {e}")
         return query.strip()
-def refine_search_result(data) -> str | SearchResult:
-
-    return
-# def refine_search
 
 
 
