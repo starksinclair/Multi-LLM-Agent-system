@@ -1,0 +1,11 @@
+services:
+  web-search-mcp-agent:
+    build:
+      context: .
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - SERPAPI_KEY=${SERPAPI_KEY}
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
