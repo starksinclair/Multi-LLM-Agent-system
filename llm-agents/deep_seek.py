@@ -9,7 +9,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class DeepSeekerLLM(BaseLLM):
+class DeepSeekLLM(BaseLLM):
     def __init__(self, api_key: Optional[str] = None, model: str = "deepseek-chat"):
         self.model = model
         self.client = OpenAI(api_key=api_key or os.getenv("DEE_SEEKER_API_KEY"), base_url="https://api.deepseeker.com")

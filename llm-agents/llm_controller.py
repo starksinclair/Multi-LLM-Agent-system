@@ -3,8 +3,8 @@ from enum import Enum
 from typing import Optional, Dict
 
 from pydantic import BaseModel
-from llm_provider import BaseLLM, LLMResponse, LLMProvider
-from mcp_services.mcp_web_search_server import MCPServer
+from llm_provider import BaseLLM, LLMResponse
+from mcp_services.mcp_web_search_server import  MCPWebSearchServer
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -16,8 +16,11 @@ class LLMTask(BaseModel):
     prompt: str
     system_prompt: Optional[str] = None
     requires_search: bool = False
+    requires_search_query_refinement: bool = False
+    requires_search_result_refinement: bool = False
 
 class LLMRole(Enum):
+    QUERY_REFINER = "query_refiner"
     RESEARCHER = "researcher"
     ANALYZER = "analyzer"
     SYNTHESIZER = "synthesizer"
@@ -26,6 +29,10 @@ class LLMRole(Enum):
 
 def _get_system_prompts():
     return {
+        LLMRole.QUERY_REFINER: """You are an expert medical search query optimizer. Your goal is to transform user questions into precise and effective search queries for medical research.
+        Focus on using accurate medical terminology, adding relevant keywords, and formulating it for direct search result relevance (e.g., symptoms, treatments, drug info, disease mechanisms).
+        The output should be only the refined query string, with no additional text or explanation. Do not include any conversational phrases or disclaimers.
+        """,
         LLMRole.RESEARCHER: """You are a medical research agent. Your role is to:
         1. Analyze medical questions and identify key search terms
         2. Review search results and extract relevant medical information
@@ -57,7 +64,7 @@ def _get_system_prompts():
 
 
 class MedicalLLMController:
-    def __init__(self, role: LLMRole, llm: BaseLLM, mcp_server: MCPServer ):
+    def __init__(self, role: LLMRole, llm: BaseLLM, mcp_server:  MCPWebSearchServer ):
         self.role = role
         self.llm = llm
         self.mcp_server = mcp_server

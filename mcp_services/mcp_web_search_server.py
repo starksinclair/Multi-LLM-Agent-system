@@ -5,12 +5,14 @@ from mcp.server.fastmcp import FastMCP
 import requests
 from pydantic import BaseModel
 
+
 class SearchResult(BaseModel):
     tool: str
     query: str
     answer: list[Dict[str, Any]]
     sources: list[str]
     total_results: int
+
 
 SERPAPI_KEY = '6d20e82ecc57146f84e27d6339d135fa5c7f395167102953888616e66c9c0e68'
 # SERPAPI_KEY = os.getenv("SERPAPI_KEY")
@@ -73,7 +75,8 @@ def format_search_results(data: dict, query: str) -> str | SearchResult:
         total_results=len(results),
     )
 
-class MCPServer:
+
+class MCPWebSearchServer:
     @mcp.tool()
     async def run(self, refined_query: str) -> str | SearchResult:
         """
