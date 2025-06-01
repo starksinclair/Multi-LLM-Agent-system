@@ -2,23 +2,24 @@ import os
 from typing import Optional
 
 from openai import OpenAI
-
-from llm_provider import BaseLLM, LLMResponse, LLMProvider
+from dotenv import load_dotenv
+from .llm_provider import BaseLLM, LLMResponse, LLMProvider
 import logging
-
+load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class DeepSeekLLM(BaseLLM):
     def __init__(self, api_key: Optional[str] = None, model: str = "deepseek-chat"):
         self.model = model
-        self.client = OpenAI(api_key=api_key or os.getenv("DEE_SEEKER_API_KEY"), base_url="https://api.deepseeker.com")
+        self.client = OpenAI(api_key=api_key or os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
 
     def generate_response(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
         try:
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
+
             messages.append({"role": "user", "content": prompt})
 
             response = self.client.chat.completions.create(

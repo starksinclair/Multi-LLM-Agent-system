@@ -1,3 +1,4 @@
+import os
 from typing import Dict, Any
 
 from dotenv import load_dotenv
@@ -13,9 +14,7 @@ class SearchResult(BaseModel):
     sources: list[str]
     total_results: int
 
-
-SERPAPI_KEY = '6d20e82ecc57146f84e27d6339d135fa5c7f395167102953888616e66c9c0e68'
-# SERPAPI_KEY = os.getenv("SERPAPI_KEY")
+SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 load_dotenv()
 mcp = FastMCP("web-search")
 URL = "https://serpapi.com/search"

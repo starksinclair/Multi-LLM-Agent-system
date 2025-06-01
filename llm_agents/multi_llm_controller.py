@@ -1,14 +1,34 @@
 import asyncio
-from typing import Dict, Any
+from typing import Dict
 
-from mcp_services.mcp_web_search_server import  MCPWebSearchServer
-from llm_controller import MedicalLLMController, LLMRole, LLMTask
-from gemini import GeminiLLM
-from deep_seek import DeepSeekLLM
+from pydantic import BaseModel
+
+from mcp_services.mcp_server.mcp_web_search_server import  MCPWebSearchServer
+from .llm_controller import MedicalLLMController, LLMRole, LLMTask
+from .gemini import GeminiLLM
+from .deep_seek import DeepSeekLLM
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+class AgentResponse(BaseModel):
+    content: str
+    provider: str
+    model: str
+
+class AgentResponses(BaseModel):
+    research: AgentResponse
+    analysis: AgentResponse
+    synthesis: AgentResponse
+    validation: AgentResponse
+
+class AgentResult(BaseModel):
+    question: str
+    search_results: str
+    agent_responses: AgentResponses
+    final_answer: str
+    timestamp: float
 
 class MultiLLMController:
     def __init__(self):
@@ -21,6 +41,7 @@ class MultiLLMController:
             gemini_llm = GeminiLLM()
             deep_seek_llm = DeepSeekLLM()
             self.agents = {
+                LLMRole.QUERY_REFINER: MedicalLLMController(LLMRole.QUERY_REFINER, gemini_llm, self.mcp_server),
                 LLMRole.RESEARCHER: MedicalLLMController(LLMRole.RESEARCHER, gemini_llm, self.mcp_server),
                 LLMRole.ANALYZER: MedicalLLMController(LLMRole.ANALYZER, deep_seek_llm, self.mcp_server),
                 LLMRole.SYNTHESIZER: MedicalLLMController(LLMRole.SYNTHESIZER, gemini_llm, self.mcp_server),
@@ -39,6 +60,7 @@ class MultiLLMController:
         """
         Refines the initial user query using the QUERY_REFINER agent.
         """
+        logger.info(f"Refining initial query: {query}")
         refinement_task = LLMTask(
             task_id="query_refine_001",
             description="Refine initial medical question for search engine",
@@ -47,7 +69,11 @@ class MultiLLMController:
         )
 
         query_refiner_agent = self.agents[LLMRole.QUERY_REFINER]
+        logger.info(f"Refiner agent: {query_refiner_agent}")
         refinement_response = await query_refiner_agent.execute_task(refinement_task)
+        if not refinement_response or not refinement_response.content:
+            logger.warning("Refinement response is empty, returning original query")
+            return query
 
         refined_query = refinement_response.content.strip()
         # Basic post-processing: remove quotes if Gemini wraps the output in them
@@ -57,7 +83,7 @@ class MultiLLMController:
         logger.info(f"Initial query refined: '{query}' -> '{refined_query}'")
         return refined_query if refined_query else query
 
-    async def process_medical_question(self, question: str) -> Dict[str, Any]:
+    async def process_medical_question(self, question: str) -> AgentResult:
         """
         Process a medical question using multiple LLM agents.
 
@@ -160,35 +186,63 @@ class MultiLLMController:
         )
         validation_response = await self.agents[LLMRole.VALIDATOR].execute_task(validation_task)
         logger.info(f"Validation response: {validation_response.content}")
-
-        result = {
-            "question": question,
-            "search_results": search_results,
-            "agent_responses": {
-                "research": {
-                    "content": research_response.content,
-                    "provider": research_response.provider.value,
-                    "model": research_response.model
-                },
-                "analysis": {
-                    "content": analysis_response.content,
-                    "provider": analysis_response.provider.value,
-                    "model": analysis_response.model
-                },
-                "synthesis": {
-                    "content": synthesis_response.content,
-                    "provider": synthesis_response.provider.value,
-                    "model": synthesis_response.model
-                },
-                "validation": {
-                    "content": validation_response.content,
-                    "provider": validation_response.provider.value,
-                    "model": validation_response.model
-                }
-            },
-            "final_answer": validation_response.content,
-            "timestamp": asyncio.get_event_loop().time()
-        }
-
         logger.info("Medical question processing completed")
-        return result
+        return AgentResult(
+            question=question,
+            search_results=search_results,
+            agent_responses=AgentResponses(
+                research=AgentResponse(
+                    content=research_response.content,
+                    provider=research_response.provider.value,
+                    model=research_response.model
+                ),
+                analysis=AgentResponse(
+                    content=analysis_response.content,
+                    provider=analysis_response.provider.value,
+                    model=analysis_response.model
+                ),
+                synthesis=AgentResponse(
+                    content=synthesis_response.content,
+                    provider=synthesis_response.provider.value,
+                    model=synthesis_response.model
+                ),
+                validation=AgentResponse(
+                    content=validation_response.content,
+                    provider=validation_response.provider.value,
+                    model=validation_response.model
+                ),
+            ),
+            final_answer=validation_response.content,
+            timestamp=asyncio.get_event_loop().time()
+        )
+        # result = {
+        #     "question": question,
+        #     "search_results": search_results,
+        #     "agent_responses": {
+        #         "research": {
+        #             "content": research_response.content,
+        #             "provider": research_response.provider.value,
+        #             "model": research_response.model
+        #         },
+        #         "analysis": {
+        #             "content": analysis_response.content,
+        #             "provider": analysis_response.provider.value,
+        #             "model": analysis_response.model
+        #         },
+        #         "synthesis": {
+        #             "content": synthesis_response.content,
+        #             "provider": synthesis_response.provider.value,
+        #             "model": synthesis_response.model
+        #         },
+        #         "validation": {
+        #             "content": validation_response.content,
+        #             "provider": validation_response.provider.value,
+        #             "model": validation_response.model
+        #         }
+        #     },
+        #     "final_answer": validation_response.content,
+        #     "timestamp": asyncio.get_event_loop().time()
+        # }
+
+
+        # return result
