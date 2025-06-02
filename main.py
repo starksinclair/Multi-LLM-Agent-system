@@ -6,8 +6,7 @@ from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from mcp_services.mcp_client.mcp_web_search_client import MCPWebSearchClient
-from web_search import WebSearchTool
+from mcp_services.mcp_client.search_mcp_client import MCPClient
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,8 +15,7 @@ app = FastAPI()
 # Serve static files (like script.js)
 app.mount("/utils", StaticFiles(directory="utils"), name="utils")
 
-mcp_server = WebSearchTool()
-client = MCPWebSearchClient()
+client = MCPClient()
 
 
 class QueryRequest(BaseModel):
@@ -52,11 +50,12 @@ async def run_mcp(request: QueryRequest):
         HTTPException: If an error occurs during the processing of the query,
                        a 500 Internal Server Error is returned with the error details.
     """
-    logger.info("MCP is running")
+    if not request.query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty.")
     try:
         logger.info(f"Received query: {request.query}")
         result = await client.run(request.query)
-        logger.info(f"Search results: {result}")
+        logger.info(f"Search results: DONE")
         return result
     except Exception as error:
         logger.error(f"Error during MCP operation: {error}")

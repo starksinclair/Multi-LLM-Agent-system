@@ -53,7 +53,7 @@ class GeminiLLM(BaseLLM, ABC):
                 model=self.model,
                 config=genai.types.GenerateContentConfig(
                     temperature=0.3,
-                    max_output_tokens=1000,
+                    max_output_tokens=2000,
                     system_instruction=system_prompt
                 ),
                 contents=prompt
@@ -64,7 +64,7 @@ class GeminiLLM(BaseLLM, ABC):
                 model=self.model
             )
         except Exception as error:
-            logger.error(f"OpenAI API error: {error}")
+            logger.error(f"Gemini API error: {error}")
             return LLMResponse(
                 content=f"Error generating response: {error}",
                 provider=LLMProvider.GEMINI,

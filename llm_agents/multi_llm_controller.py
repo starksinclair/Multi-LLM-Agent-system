@@ -1,8 +1,7 @@
-from typing import Dict
+from typing import Dict, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
-from mcp_services.mcp_server.mcp_web_search_server import MCPWebSearchServer, SearchResult
 from .llm_controller import MedicalLLMController, LLMRole, LLMTask
 from .gemini import GeminiLLM
 from .deep_seek import DeepSeekLLM
@@ -37,7 +36,8 @@ class AgentResult(BaseModel):
     Encapsulates the complete result of processing a medical question.
     """
     question: str
-    search_results: SearchResult
+    web_search_results: Optional[str] = None
+    pubmed_results: Optional[str] = None
     agent_responses: AgentResponses
     final_answer: str
     timestamp: datetime
@@ -48,12 +48,11 @@ class MultiLLMController:
     Orchestrates a multi-stage process for answering medical questions using different LLM agents.
 
     This controller manages the lifecycle of a medical question, from initial query refinement
-    and web search to research, validation, and final answer generation. It assigns specific
-    LLM models to different roles (e.g., Query Refiner, Researcher, Validator) to leverage
-    their unique strengths.
+    and web/PubMed search to research, validation, and final answer generation. It assigns specific
+    LLM models to different roles (e.g., Query Refiner, Researcher, Validator).
     """
+
     def __init__(self):
-        self.mcp_server = MCPWebSearchServer()
         self.agents: Dict[LLMRole, MedicalLLMController] = {}
         self.setup_agents()
 
@@ -71,8 +70,8 @@ class MultiLLMController:
             open_ai_llm = OpenAILLM()
             self.agents = {
                 LLMRole.QUERY_REFINER: MedicalLLMController(LLMRole.QUERY_REFINER, gemini_llm),
-                LLMRole.RESEARCHER: MedicalLLMController(LLMRole.RESEARCHER, deep_seek_llm),
-                LLMRole.VALIDATOR: MedicalLLMController(LLMRole.VALIDATOR, gemini_llm)
+                LLMRole.RESEARCHER: MedicalLLMController(LLMRole.RESEARCHER, gemini_llm),
+                LLMRole.VALIDATOR: MedicalLLMController(LLMRole.VALIDATOR, deep_seek_llm)
             }
             logger.info("Multi-LLM agent system initialized successfully")
         except Exception as error:
@@ -98,7 +97,6 @@ class MultiLLMController:
             str: A refined search query string. If the refinement fails or returns
                  an empty response, the original query is returned as a fallback.
         """
-        logger.info(f"Refining initial query: {query}")
         refinement_task = LLMTask(
             task_id="query_refine_001",
             description="Refine initial medical question for search engine",
@@ -107,7 +105,6 @@ class MultiLLMController:
         )
 
         query_refiner_agent = self.agents[LLMRole.QUERY_REFINER]
-        logger.info(f"Refiner agent: {query_refiner_agent}")
         refinement_response = await query_refiner_agent.execute_task(refinement_task)
         if not refinement_response or not refinement_response.content:
             logger.warning("Refinement response is empty, returning original query")
@@ -118,108 +115,146 @@ class MultiLLMController:
         if refined_query.startswith('"') and refined_query.endswith('"'):
             refined_query = refined_query[1:-1]
 
-        logger.info(f"Initial query refined: '{query}' -> '{refined_query}'")
         return refined_query if refined_query else query
 
-    async def process_medical_question(self, question: str) -> AgentResult:
+    async def process_medical_question(self, question: str, web_search_results: Optional[str] = None,
+                                       pubmed_results: Optional[str] = None) -> AgentResult:
         """
         Processes a medical question through a multi-stage pipeline involving LLM agents
-        for query refinement, research, and validation.
+        for research, and validation.
 
         This asynchronous method orchestrates the following steps:
 
-        1. Refines the initial user question into an optimized search query using the QUERY_REFINER agent.
+        1. Passes the original question along with both web search results and PubMed results
+           to a RESEARCHER agent to synthesize relevant medical information from multiple sources
+           aiming for a concise output (approx. 1000 tokens).
 
-        2. Executes a web search using the refined query via `self.mcp_server` which is the custom MCP Server.
+        2. Sends the RESEARCHER's output to a VALIDATOR agent to ensure safety,
+           accuracy, disclaimers, and formats the final answer into well-structured HTML with inline CSS (approx. 1000 tokens).
 
-        3. Passes the original question and search results to a RESEARCHER agent
-           to summarize relevant medical information.
-
-        4. Sends the RESEARCHER's output to a VALIDATOR agent to ensure safety,
-           accuracy, disclaimers, and proper HTML formatting.
-        5. Compiles all intermediate and final responses into an `AgentResult` object.
+        3. Compiles all intermediate and final responses into an `AgentResult` object.
 
         Args:
             question (str): The medical question to be processed.
+            web_search_results (Optional[str]): Pre-fetched web search results.
+            pubmed_results (Optional[str]): Pre-fetched PubMed search results.
+                If None, no PubMed data will be included in the research.
 
         Returns:
             AgentResult: A comprehensive object containing the original question,
-                         search results, responses from each agent, and the final
-                         validated HTML answer.
+                         search results, PubMed results, responses from each agent,
+                         and the final validated HTML answer.
         """
         logger.info(f"Processing medical question: {question}")
-        refined_initial_query = await self.refine_initial_query(question)
 
-        search_results = await self.mcp_server.run(f"medical {refined_initial_query}")
+        # Create comprehensive research prompt that incorporates both sources
+        research_prompt = f"""Analyze this medical question using the comprehensive search information provided from multiple sources:
+
+        You have a strict limit of approximately **1000 tokens** for the final output. Adjust detail level, brevity, and formatting accordingly to fit this constraint.
+
+        Original Question: {question}
+        """
+
+        if web_search_results:
+            research_prompt += f"""
+
+        WEB SEARCH RESULTS:
+        {web_search_results}
+        """
+
+        if pubmed_results:
+            research_prompt += f"""
+
+        PUBMED LITERATURE RESULTS:
+        {pubmed_results}
+        """
+
+        research_prompt += """
+
+        RESEARCH INSTRUCTIONS:
+        Based on the search results from both web sources and medical literature (if available), extract and synthesize the most relevant and reliable medical information. 
+
+        Prioritize information in this order:
+        1. Peer-reviewed medical literature (PubMed results)
+        2. Reputable medical sources (Mayo Clinic, WebMD, NIH, medical journals)
+        3. Other credible health websites
+
+        Focus on identifying key points about:
+        - Symptoms or conditions mentioned
+        - Potential causes and risk factors
+        - Treatment options and management strategies
+        - When to seek medical care
+        - Prevention measures (if applicable)
+
+        IMPORTANT GUIDELINES:
+        - Cross-reference information between web and literature sources when possible
+        - If sources contradict each other, mention this and favor peer-reviewed literature
+        - If search results are inconclusive, contradictory, or if information on a particular key point is scarce, state this clearly
+        - Do not invent information or make assumptions beyond what the sources provide
+        - If the question is outside the scope of general medical knowledge, state that appropriately
+        - Emphasize that this information is for educational purposes only
+
+        Synthesize the information from both sources into a coherent, evidence-based response."""
 
         research_task = LLMTask(
             task_id="research_001",
-            description="Research medical question",
-            prompt=f"""Analyze this medical question and the *refined* search information provided:
-                   You have a strict limit of approximately **1000 tokens** for the final output. Adjust detail level, brevity, and formatting accordingly to fit this constraint.
-                     
-                   Original Question: {question}
-
-                    Refined Medical Search Information:
-                    {refined_initial_query}
-
-                    Based on the search results, extract and summarize the most relevant and reliable medical information. 
-                    Focus on information from reputable medical sources like Mayo Clinic, WebMD, NIH, or medical journals.
-                    
-                    Identify key points about:
-                    - Symptoms or conditions mentioned
-                    - Potential causes
-                    - Treatment options
-                    - When to seek medical care
-                    - If the search results are inconclusive, contradictory, or if information on a particular key point is scarce, state this clearly. Do not invent information. If the question is outside the scope of general medical knowledge, state that appropriately.
-                    
-                    Remember to emphasize that this information is for educational purposes only.""",
+            description="Research medical question using web and literature sources",
+            prompt=research_prompt,
             system_prompt=self.agents[LLMRole.RESEARCHER].system_prompts[LLMRole.RESEARCHER],
             requires_search=True
         )
-        research_response = await self.agents[LLMRole.RESEARCHER].execute_task(research_task, search_results)
-        logger.info(f"Research response: {research_response.content}")
+
+        research_response = await self.agents[LLMRole.RESEARCHER].execute_task(research_task)
 
         validation_task = LLMTask(
             task_id="validation_001",
             description="Validate final medical response",
-            prompt=f"""You are validating a medical response to ensure it meets safety and quality standards before presenting it to users.
+            prompt=f"""
+            You are validating a medical response to ensure it meets safety and quality standards before presenting it to users.
 
-                    You have a strict limit of approximately **1000 tokens** for the final output. Adjust detail level, brevity, and formatting accordingly to fit this constraint.
-                    
-                    Here is the draft response:
-                    
-                    {research_response.content}
-                    
-                    Perform the following checks:
-                    1. Do **not** provide specific medical diagnoses or treatment advice.
-                    2. Include a strong disclaimer advising users to consult a qualified healthcare professional.
-                    3. Ensure the content is safe, medically accurate, and educational — not misleading or harmful.
-                    4. Use clear, concise language suitable for a general audience. Briefly explain any medical terms if needed.
-                    5. Keep the content focused and avoid unnecessary elaboration.
-                    
-                    Once validated, transform the response into an **HTML snippet with in-line CSS styles** for display in a user interface, just include the html don't add ```html.
-                    
-                    ### Formatting instructions:
-                    - Use `<h2>` tags for section headings like **Symptoms**, **Potential Causes**, **Treatment Options**, **When to Seek Medical Care**
-                    - Use bullet points (`<ul><li>`) for readability where appropriate
-                    - Place the following **strong disclaimer** at both the top and bottom:
-                    
-                    > <strong>This information is for educational purposes only and should not be considered medical advice. Always consult a qualified healthcare professional for diagnosis and treatment.</strong>
-                    
-                    Only return the final HTML output. Do **not** include explanation or additional commentary.""",
+            You have a strict limit of approximately **1000 tokens** for the final output. Adjust the level of detail, brevity, and formatting accordingly to fit within this limit.
 
-            system_prompt=self.agents[LLMRole.VALIDATOR].system_prompts[LLMRole.VALIDATOR],
+            Here is the draft response based on web search and literature review:
+
+            {research_response.content}
+
+            Perform the following checks:
+            1. Do **not** provide specific medical diagnoses or treatment advice.
+            2. Include a strong disclaimer advising users to consult a qualified healthcare professional.
+            3. Ensure the content is safe, medically accurate, and educational — not misleading or harmful.
+            4. Use clear, concise language suitable for a general audience. Briefly explain any medical terms if needed.
+            5. Keep the content focused and avoid unnecessary elaboration.
+            6. If the response references both web sources and medical literature, ensure proper context is maintained.
+
+            Then, transform the validated content into well-structured **HTML with clean, beautiful in-line CSS styling** for display in a user interface.
+            ⚠️ Do not use markdown, triple backticks, or code blocks of any kind. Only return the raw HTML. Do not wrap it in ```html or any other formatting.
+
+            ### Formatting & Styling Instructions:
+            - Use `<h2>` tags for section headings like **Symptoms**, **Potential Causes**, **Treatment Options**, **When to Seek Medical Care**
+            - Use bullet points (`<ul><li>`) where appropriate
+            - Add soft background colors, padding, and rounded corners to section containers
+            - Use a readable, professional font (e.g., `sans-serif`), and ensure responsive layout for mobile screens
+            - Style the disclaimer with italicized text, a subtle background color, and bold red warning text
+            - Do **not** use markdown, triple backticks, or any code block formatting
+            - Return **only the raw HTML output**, with in-line CSS — no commentary or extra formatting
+
+            Place the following **disclaimer at both the top and bottom** of the content:
+
+            > <strong>This information is for educational purposes only and should not be considered medical advice. Always consult a qualified healthcare professional for diagnosis and treatment.</strong>
+             ⚠️ Do not use markdown, triple backticks, or code blocks of any kind. Only return the raw HTML. Do not wrap it in ```html or any other formatting.
+            """,
+        system_prompt=self.agents[LLMRole.VALIDATOR].system_prompts[LLMRole.VALIDATOR],
         )
         validation_response = await self.agents[LLMRole.VALIDATOR].execute_task(validation_task)
-        logger.info(f"Validation response: {validation_response.content}")
         logger.info("Medical question processing completed")
+
         return AgentResult(
             question=question,
-            search_results=search_results,
+            web_search_results=web_search_results,
+            pubmed_results=pubmed_results,  # Include PubMed results in the result
             agent_responses=AgentResponses(
                 query_refinement=AgentResponse(
-                    content=refined_initial_query,
+                    content=question,
                     provider=self.agents[LLMRole.QUERY_REFINER].llm.get_provider().value,
                     model=self.agents[LLMRole.QUERY_REFINER].llm.model
                 ),

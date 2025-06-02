@@ -3,7 +3,6 @@ from typing import Optional
 
 from pydantic import BaseModel
 from .llm_provider import BaseLLM, LLMResponse
-from mcp_services.mcp_server.mcp_web_search_server import MCPWebSearchServer, SearchResult
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -36,8 +35,6 @@ class LLMRole(Enum):
         """
     QUERY_REFINER = "query_refiner"
     RESEARCHER = "researcher"
-    ANALYZER = "analyzer"
-    SYNTHESIZER = "synthesizer"
     VALIDATOR = "validator"
 
 
@@ -87,7 +84,7 @@ class MedicalLLMController:
         self.llm = llm
         self.system_prompts = _get_system_prompts()
 
-    async def execute_task(self, task: LLMTask, search_context: Optional[str | SearchResult] = None) -> LLMResponse:
+    async def execute_task(self, task: LLMTask, search_context: Optional[str] = None) -> LLMResponse:
         """
         Executes a given LLM task, incorporating search context if provided.
 
@@ -97,7 +94,7 @@ class MedicalLLMController:
 
         Args:
             task (LLMTask): The task to execute, containing the core prompt and flags.
-            search_context (Optional[str | SearchResult]): Optional context derived from
+            search_context (Optional[str]): Optional context derived from
                                                            a search operation. This can be
                                                            a raw string of search results or
                                                            a `SearchResult` object.
@@ -109,11 +106,8 @@ class MedicalLLMController:
         search_info = ""
         full_prompt = task.prompt
         if search_context:
-            if isinstance(search_context, SearchResult):
-                search_info = f"\n\nSearch Results Context:\nTool: {search_context.tool}\nQuery: {search_context.query}\nAnswer: {search_context.answer}\nSources: {', '.join(search_context.sources)}\nTotal Results: {search_context.total_results}"
-            elif isinstance(search_context, str):
-                search_info = f"\n\nSearch Results Context:\n{search_context}"
-            full_prompt += search_info
+            search_info = f"\n\nSearch Results Context:\n{search_context}"
+        full_prompt += search_info
 
         system_prompt = task.system_prompt or self.system_prompts.get(self.role, "")
         response = self.llm.generate_response(full_prompt, system_prompt)
