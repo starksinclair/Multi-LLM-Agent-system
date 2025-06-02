@@ -16,10 +16,10 @@ document.getElementById("askBtn").addEventListener("click", async () => {
         });
         const data = await response.json();
         if (!response.ok) {
-            throw new Error(data.error || "Failed to fetch answer.");
+            answerText.textContent = "Error: " + (data.error || "Failed to fetch answer.");
         }
         console.log("Response received:", data, "Final answer:", data.final_answer);
-        const cleanHtml = DOMPurify.sanitize(data.final_answer || "",);
+        const cleanHtml = DOMPurify.sanitize(data.final_answer || "").replace(/^```html|```$/g, "").trim();
         answerText.innerHTML = cleanHtml || "No answer returned.";
     } catch (err) {
         console.error(err);
