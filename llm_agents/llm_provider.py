@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 
 class LLMProvider(Enum):
+    OPENAI = "openai"
     GEMINI = "gemini"
     DEEPSEEK = "deepseek"
 
@@ -25,11 +26,13 @@ class BaseLLM(ABC):
         """
         Generate a response from the LLM based on the provided prompt.
 
-        Args: prompt (str): The input prompt for the LLM.
+        Args:
+            prompt (str): The input prompt for the LLM.
+            system_prompt (Optional[str]): An optional system-level instruction or context
+                                            to guide the LLM's behavior.
 
-        Returns: LLMResponse: The generated response from the LLM.
-        :param prompt:
-        :param system_prompt:
+        Returns:
+            LLMResponse: The generated response from the LLM.
         """
         pass
 

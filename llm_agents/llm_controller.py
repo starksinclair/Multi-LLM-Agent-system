@@ -1,4 +1,3 @@
-
 from enum import Enum
 from typing import Optional
 
@@ -10,7 +9,15 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class LLMTask(BaseModel):
+    """
+    Defines a task to be executed by an LLM within the medical query workflow.
+
+    This Pydantic model encapsulates all necessary information for an LLM to
+    perform a specific sub-task, including the prompt, system instructions,
+    and flags indicating if external search is required.
+    """
     task_id: str
     description: str
     prompt: str
@@ -19,7 +26,14 @@ class LLMTask(BaseModel):
     requires_search_query_refinement: bool = False
     requires_search_result_refinement: bool = False
 
+
 class LLMRole(Enum):
+    """
+        Enumerates the different roles an LLM can perform within the  medical query workflow.
+
+        Each role is associated with a specific system prompt and set of responsibilities
+        to guide the LLM's behavior and focus.
+        """
     QUERY_REFINER = "query_refiner"
     RESEARCHER = "researcher"
     ANALYZER = "analyzer"
@@ -28,6 +42,16 @@ class LLMRole(Enum):
 
 
 def _get_system_prompts():
+    """
+    Provides a dictionary of system prompts for different LLM roles.
+
+    These system prompts are designed to set the persona and specific instructions
+    for each LLM role, guiding their behavior and output format.
+
+    Returns:
+        dict: A dictionary where keys are LLMRole enum members and values are
+              corresponding system prompt strings.
+    """
     return {
         LLMRole.QUERY_REFINER: """You are an expert medical search query optimizer. Your goal is to transform user questions into precise and effective search queries for medical research.
         Focus on using accurate medical terminology, adding relevant keywords, and formulating it for direct search result relevance (e.g., symptoms, treatments, drug info, disease mechanisms).
@@ -40,46 +64,47 @@ def _get_system_prompts():
         4. Always mention that medical information should be verified with healthcare professionals
         5. Be precise and factual in your analysis""",
 
-        LLMRole.ANALYZER: """You are a medical analysis agent. Your role is to:
-        1. Analyze medical information for accuracy and completeness
-        2. Identify potential gaps or inconsistencies in information
-        3. Cross-reference information from multiple sources
-        4. Assess the reliability of sources and information quality
-        5. Highlight any conflicting information found""",
-
-        LLMRole.SYNTHESIZER: """You are a medical synthesis agent. Your role is to:
-        1. Combine information from multiple sources into coherent responses
-        2. Structure medical information clearly and logically
-        3. Ensure balanced presentation of different viewpoints
-        4. Create comprehensive yet accessible explanations
-        5. Always include appropriate medical disclaimers""",
-
         LLMRole.VALIDATOR: """You are a medical validation agent. Your role is to:
         1. Review final medical responses for accuracy and safety
         2. Ensure appropriate disclaimers are included
         3. Check that responses don't provide specific medical advice
         4. Validate that information is presented responsibly
-        5. Flag any potentially harmful or misleading content"""
+        5. Flag any potentially harmful or misleading content
+        6. Format your response as the final response that the user will read, so make sure it is clear and concise""",
     }
 
 
 class MedicalLLMController:
-    def __init__(self, role: LLMRole, llm: BaseLLM, mcp_server:  MCPWebSearchServer ):
+    """
+    Orchestrates the execution of LLM tasks for specific medical query roles.
+
+    This controller class manages the interaction with an LLM instance to fulfill
+    defined tasks. It applies role-specific system prompts and integrates
+    external search context into the LLM's prompt when provided.
+    """
+    def __init__(self, role: LLMRole, llm: BaseLLM):
         self.role = role
         self.llm = llm
-        self.mcp_server = mcp_server
         self.system_prompts = _get_system_prompts()
 
     async def execute_task(self, task: LLMTask, search_context: Optional[str | SearchResult] = None) -> LLMResponse:
         """
-        Execute a given task using the specified LLM and MCP server.
+        Executes a given LLM task, incorporating search context if provided.
+
+        This asynchronous method prepares the full prompt for the LLM by combining
+        the task's prompt with the search results. It then sends this
+        to the configured LLM and returns the generated response.
 
         Args:
-            task (LLMTask): The task to execute.
-            search_context (Optional[str | SearchResult]): Context for the task, such as search results or additional information.
+            task (LLMTask): The task to execute, containing the core prompt and flags.
+            search_context (Optional[str | SearchResult]): Optional context derived from
+                                                           a search operation. This can be
+                                                           a raw string of search results or
+                                                           a `SearchResult` object.
 
         Returns:
-            LLMResponse: The response generated by the LLM.
+            LLMResponse: The response generated by the LLM, encapsulated with content,
+                         provider, and model information.
         """
         search_info = ""
         full_prompt = task.prompt
@@ -90,12 +115,8 @@ class MedicalLLMController:
                 search_info = f"\n\nSearch Results Context:\n{search_context}"
             full_prompt += search_info
 
-            # Get system prompt for this role
         system_prompt = task.system_prompt or self.system_prompts.get(self.role, "")
-
-        # Generate response using the LLM
         response = self.llm.generate_response(full_prompt, system_prompt)
-
         logger.info(f"Agent {self.role.value} ({self.llm.get_provider().value}) completed task: {task.task_id}")
 
         return response

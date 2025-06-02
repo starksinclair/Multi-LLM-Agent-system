@@ -1,3 +1,4 @@
+
 document.getElementById("askBtn").addEventListener("click", async () => {
     const question = document.getElementById("question").value.trim();
     const answerText = document.getElementById("answerText");
@@ -17,8 +18,9 @@ document.getElementById("askBtn").addEventListener("click", async () => {
         if (!response.ok) {
             throw new Error(data.error || "Failed to fetch answer.");
         }
-        console.log("Response received:", data);
-        answerText.textContent = data.answer || "No answer returned.";
+        console.log("Response received:", data, "Final answer:", data.final_answer);
+        const cleanHtml = DOMPurify.sanitize(data.final_answer || "",);
+        answerText.innerHTML = cleanHtml || "No answer returned.";
     } catch (err) {
         console.error(err);
         answerText.textContent = "An error occurred while fetching the answer.";

@@ -6,29 +6,40 @@ from mcp.server.fastmcp import FastMCP
 import requests
 from pydantic import BaseModel
 
-
-class SearchResult(BaseModel):
-    tool: str
-    query: str
-    answer: list[Dict[str, Any]]
-    sources: list[str]
-    total_results: int
-
 SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 load_dotenv()
 mcp = FastMCP("web-search")
 URL = "https://serpapi.com/search"
 
 
+class SearchResult(BaseModel):
+    """
+    Represents the structured result of a web search operation.
+    """
+    tool: str
+    query: str
+    answer: list[Dict[str, Any]]
+    sources: list[str]
+    total_results: int
+
+
 async def make_serpapi_request(query: str) -> dict:
     """
-    Perform an HTTP GET request to the SerpAPI Google search API.
+    Performs an HTTP GET request to the SerpAPI Google search API.
+
+    This asynchronous function constructs the request parameters, including the
+    search query, API key, desired engine, number of results, and safe search settings.
+    It then executes the request and parses the JSON response.
+
     Args:
         query (str): The search query string.
+
     Returns:
         dict: Parsed JSON response from SerpAPI containing search results and metadata.
+
     Raises:
-        Exception: If the HTTP response code is not 200 or if an error is returned by the API.
+        Exception: If the HTTP response status code is not 200 or if an error
+                   message is returned by the SerpAPI.
     """
     params = {
         'q': query,

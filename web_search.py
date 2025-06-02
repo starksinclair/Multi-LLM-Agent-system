@@ -1,15 +1,13 @@
 import logging
 import os
 from google import genai
-import requests
 from dotenv import load_dotenv
 from google.genai import types
-from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
 # mcp = FastMCP("web-search")
 # URL = "https://serpapi.com/search"
-from mcp_services.mcp_web_search_server import MCPWebSearchServer
+from mcp_services.mcp_server.mcp_web_search_server import MCPWebSearchServer
 server = MCPWebSearchServer()
 load_dotenv()
 

@@ -1,9 +1,12 @@
 import logging
+import time
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+
+from mcp_services.mcp_client.mcp_web_search_client import MCPWebSearchClient
 from web_search import WebSearchTool
 
 logging.basicConfig(level=logging.INFO)
@@ -11,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 class QueryRequest(BaseModel):
     query: str
-
 app = FastAPI()
 # Serve static files (like script.js)
 app.mount("/utils", StaticFiles(directory="utils"), name="utils")
@@ -22,6 +24,7 @@ app.mount("/utils", StaticFiles(directory="utils"), name="utils")
 #     allow_headers=["*"],
 # )
 mcp_server = WebSearchTool()
+client = MCPWebSearchClient()
 
 @app.post("/mcp")
 async def run_mcp(request: QueryRequest):
@@ -33,17 +36,18 @@ async def run_mcp(request: QueryRequest):
     logger.info("MCP is running")
     try:
         logger.info(f"Received query: {request.query}")
-        result = await mcp_server.run(request.query)
+        result = await client.run(request.query)
         logger.info(f"Search results: {result}")
         return result
     except Exception as error:
         logger.error(f"Error during MCP operation: {error}")
-        return HTTPException(status_code=500, detail=str(error))
+        raise HTTPException(status_code=500, detail=str(error))
 
 
 @app.get('/', response_class=HTMLResponse)
 def index():
-    return HTMLResponse(content="""
+    timestamp = int(time.time())
+    return HTMLResponse(content=f"""
     <html>
   <head>
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
@@ -57,6 +61,7 @@ def index():
      <title>MCP Web Search</title>
     <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
   </head>
   <body>
     <div class="relative flex size-full min-h-screen flex-col bg-white group/design-root overflow-x-hidden" style='font-family: "Public Sans", "Noto Sans", sans-serif;'>
@@ -108,7 +113,7 @@ def index():
         </div>
       </div>
     </div>
-    <script src="/utils/script.js"></script>
+    <script src="/utils/script.js?v={timestamp}"></script>
   </body>
 </html>
     """)
