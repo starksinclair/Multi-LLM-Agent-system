@@ -1,6 +1,6 @@
 # HealthConnect: Multi-Agent Medical Question Answering System
 
-HealthConnect is a cutting-edge web application designed to provide accurate, reliable, and validated answers to medical questions by leveraging a sophisticated multi-agent Large Language Model (LLM) pipeline integrated with comprehensive web and medical literature search capabilities.
+HealthConnect is a web application that delivers accurate, reliable, and medically validated answers to user questions by leveraging a multi-agent Large Language Model (LLM). It integrates with Model Context Protocol (MCP) servers to perform comprehensive web and medical literature searches, ensuring responses are grounded in up-to-date and trustworthy information.
 
 ## 🧠 Architecture and How It Works
 
