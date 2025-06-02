@@ -62,12 +62,10 @@ GEMINI_API_KEY="your_gemini_api_key_here"
 1.  **Clone the repository:**
 
     ```
-    git clone <repository_url>
+    git clone https://github.com/starksinclair/Multi-LLM-Agent-system.git
     cd HealthConnect
 
     ```
-
-    (Replace `<repository_url>` with the actual URL of your repository)
 
 2.  **Build the Docker image and  run the Docker container:**
 
