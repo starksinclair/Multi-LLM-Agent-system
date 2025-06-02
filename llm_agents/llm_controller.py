@@ -69,8 +69,8 @@ def _get_system_prompts():
         2. Ensure appropriate disclaimers are included
         3. Check that responses don't provide specific medical advice
         4. Validate that information is presented responsibly
-        5. Flag any potentially harmful or misleading content
-        6. Format your response as the final response that the user will read, so make sure it is clear and concise""",
+        5. Flag any potentially harmful or misleading content.
+        """,
     }
 
 

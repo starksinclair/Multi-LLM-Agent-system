@@ -12,26 +12,45 @@ from web_search import WebSearchTool
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class QueryRequest(BaseModel):
-    query: str
 app = FastAPI()
 # Serve static files (like script.js)
 app.mount("/utils", StaticFiles(directory="utils"), name="utils")
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
+
 mcp_server = WebSearchTool()
 client = MCPWebSearchClient()
+
+
+class QueryRequest(BaseModel):
+    """
+       Pydantic model for validating the structure of incoming query requests.
+
+       Attributes:
+           query (str): The medical question string submitted by the user.
+       """
+    query: str
+
 
 @app.post("/mcp")
 async def run_mcp(request: QueryRequest):
     """
-    A simple endpoint to demonstrate the MCP functionality.
+    API endpoint to process a medical question using the Multi-LLM pipeline.
+
+    This asynchronous endpoint receives a user's query, passes it to the
+    `MCPWebSearchClient` for comprehensive processing, and returns the
+    structured result. It includes robust error handling to catch and
+    report issues during the LLM operations.
+
+    Args:
+        request (QueryRequest): The incoming request body containing the user's query.
+
     Returns:
-        dict: A message indicating the MCP is running.
+        AgentResult: A Pydantic object containing the question, search results,
+                     responses from individual agents, and the final HTML answer.
+                     FastAPI automatically serializes this object to JSON.
+
+    Raises:
+        HTTPException: If an error occurs during the processing of the query,
+                       a 500 Internal Server Error is returned with the error details.
     """
     logger.info("MCP is running")
     try:
@@ -46,6 +65,16 @@ async def run_mcp(request: QueryRequest):
 
 @app.get('/', response_class=HTMLResponse)
 def index():
+    """
+        Serves the main HTML page for the HealthConnect web application.
+
+        This endpoint returns the `index.html` content, which includes the user interface
+        for submitting medical questions and displaying answers. It incorporates a
+        cache-busting timestamp for the `script.js` file to ensure the latest version is loaded.
+
+        Returns:
+            HTMLResponse: The HTML content of the main application page.
+        """
     timestamp = int(time.time())
     return HTMLResponse(content=f"""
     <html>
@@ -117,8 +146,20 @@ def index():
   </body>
 </html>
     """)
+
+
 @app.get("/about", response_class=HTMLResponse)
 def about():
+    """
+        Serves the About page for the HealthConnect application.
+
+        This endpoint provides detailed information about the project's purpose,
+        technology stack, and how it leverages AI and web search to deliver
+        reliable medical information.
+
+        Returns:
+            HTMLResponse: The HTML content of the About page.
+        """
     return HTMLResponse(content="""
         <html>
       <head>
@@ -159,17 +200,31 @@ def about():
                 </div>
               </div>
             </header>
-            <div class="px-40 flex flex-1 justify-center py-5">
-            <div class="layout-content-container flex flex-col max-w-[960px] flex-1">
-              <h2 class="text-[#111518] tracking-light text-[28px] font-bold leading-tight px-4 text-center pb-3 pt-5">About HealthConnect</h2>
-                <p class="text-[#111518] text-base font-normal leading-normal px-4">
-                    HealthConnect is a web-based application designed to provide users with quick and reliable answers to their medical questions. It leverages advanced web search capabilities to deliver accurate information from trusted sources.
-                </p>
-                <p class="text-[#111518] text-base font-normal leading-normal px-4 pt-3">
-                    The application is built using FastAPI, a modern web framework for building APIs with Python. It features a user-friendly interface that allows users to submit their medical queries and receive answers in real-time.
-                </p>
-                </div>
-                </div>
+           <div class="layout-content-container flex flex-col max-w-[960px] mx-auto px-6 py-10 space-y-6 text-[#111518]">
+            <h2 class="text-3xl font-bold text-center">About HealthConnect</h2>
+            
+            <p class="text-base leading-relaxed">
+            <strong>HealthConnect</strong> is a cutting-edge web application designed to provide users with accurate, reliable, and validated answers to their medical questions. Our mission is to empower individuals with accessible health information, leveraging the power of advanced AI and comprehensive web search.
+            </p>
+            
+            <p class="text-base leading-relaxed">
+            At its core, HealthConnect employs a sophisticated <strong>multi-agent LLM pipeline</strong>. This means your queries are not handled by a single AI, but by a specialized team of Large Language Models, each with a distinct role:
+            </p>
+            
+            <ul class="list-disc pl-6 space-y-2 text-base leading-relaxed">
+            <li><strong>Query Refiner:</strong> Optimizes your original question into a precise search query for maximum relevance.</li>
+            <li><strong>Researcher:</strong> Conducts extensive web searches, focusing on reputable medical sources like Mayo Clinic, WebMD, NIH, and peer-reviewed journals.</li>
+            <li><strong>Validator:</strong> Critically reviews the research findings to ensure accuracy, safety, and adherence to medical guidelines, adding crucial disclaimers.</li>
+            </ul>
+            
+            <p class="text-base leading-relaxed">
+            This multi-layered approach ensures that the information you receive is not only comprehensive but also carefully vetted for safety and educational value. HealthConnect is built with <strong>FastAPI</strong> for a robust backend and a responsive, user-friendly frontend, providing real-time answers to your health inquiries.
+            </p>
+            
+            <div class="bg-yellow-100 border-l-4 border-yellow-400 p-4 text-sm text-yellow-900 rounded-md">
+            <strong>Disclaimer:</strong> The information provided by HealthConnect is for educational purposes only and should not be considered medical advice. Always consult a qualified healthcare professional for diagnosis and treatment.
+            </div>
+            </div>
           </div>
         </div>
       </body>

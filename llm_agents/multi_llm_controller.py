@@ -149,7 +149,9 @@ class MultiLLMController:
         """
         logger.info(f"Processing medical question: {question}")
         refined_initial_query = await self.refine_initial_query(question)
+
         search_results = await self.mcp_server.run(f"medical {refined_initial_query}")
+
         research_task = LLMTask(
             task_id="research_001",
             description="Research medical question",
