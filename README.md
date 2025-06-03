@@ -20,6 +20,14 @@ HealthConnect operates through a multi-stage pipeline orchestrated by several ke
 
 7.  **MCP Server (`mcp_server/search.py`)**: An MCP (Multi-Component Protocol) server that exposes `search_pubmed` and `web_search` as callable tools, allowing the `MCPClient` to request search operations.
 
+8.  **LLM Agents**: Various LLMs (e.g., OpenAI, Google Gemini, DeepSeek) are used for different roles in the pipeline:
+    - **`QUERY_REFINER`**: Refines the user's query for better search results.
+    - **`RESEARCHER`**: Synthesizes information from web and PubMed searches.
+    - **`VALIDATOR`**: Validates the synthesized response, ensuring it is medically accurate and safe.
+
+9. **`HTMLResponseGenerator`**: A utility that consistently formats AI-generated medical answers into a styled HTML template with disclaimers and Tailwind CSS classes, ensuring readability.
+
+
 When a user submits a medical question:
 
 * The FastAPI backend receives the query.
