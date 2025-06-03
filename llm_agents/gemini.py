@@ -22,7 +22,7 @@ class GeminiLLM(BaseLLM, ABC):
     """
 
     def __init__(self, api_key: Optional[str] = None, model: str = "gemini-2.0-flash"):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
         self.model = model
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY must be set either as an argument or in the environment variables.")

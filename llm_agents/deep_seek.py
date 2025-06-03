@@ -22,7 +22,7 @@ class DeepSeekLLM(BaseLLM):
 
     def __init__(self, api_key: Optional[str] = None, model: str = "deepseek-reasoner"):
         self.model = model
-        self.client = OpenAI(api_key=api_key or os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
+        self.client = OpenAI(api_key=api_key or os.environ.get("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
 
     def generate_response(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
         """

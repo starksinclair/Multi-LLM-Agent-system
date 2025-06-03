@@ -21,7 +21,7 @@ class OpenAILLM(BaseLLM):
 
     def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4o-mini"):
         self.model = model
-        self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
+        self.client = OpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
 
     def generate_response(self, prompt: str, system_prompt: Optional[str] = None) -> LLMResponse:
         """
