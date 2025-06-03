@@ -3,20 +3,18 @@ import logging
 import json
 from typing import Optional
 
-from mcp.server.fastmcp import FastMCP
 import requests
 from pydantic import BaseModel
 
 if os.environ.get("ENV") != "production":
     from dotenv import load_dotenv
-    load_dotenv()
-mcp = FastMCP("web-search")
-URL = "https://serpapi.com/search"
 
+    load_dotenv()
+
+URL = "https://serpapi.com/search"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 
 class SearchResult(BaseModel):
@@ -41,6 +39,7 @@ class WebSearchHelper:
 
     def __init__(self, api_key: Optional[str] = None):
         # self.serpapi_key =  os.environ.get("SERP_API_KEY")
+        print("ENV LOADEDs: SERP_API_KEY =", os.environ.get("SERP_API_KEY"))
         self.serpapi_key = api_key or os.environ.get("SERP_API_KEY")
         print(self.serpapi_key, "serpapi key")
         if not self.serpapi_key:
@@ -79,7 +78,6 @@ class WebSearchHelper:
         if response.status_code != 200:
             raise Exception(f"Error fetching data from SerpAPI: {data.get('error', 'Unknown error')}")
         results = []
-
 
         for i, result in enumerate(data.get("organic_results", []), 1):
             title = result.get("title", "")

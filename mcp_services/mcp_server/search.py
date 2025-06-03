@@ -29,6 +29,8 @@ if os.environ.get("ENV") != "production":
     load_dotenv()
 
 pubmed_helper = PubMedHelper()
+print("ENV LOADED: SERP_API_KEY =", os.environ.get("SERP_API_KEY"))
+
 
 @app.list_tools()
 async def handle_list_tools() -> List[Tool]:
