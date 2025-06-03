@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 
 from fastapi import FastAPI, HTTPException
@@ -80,6 +81,7 @@ def index():
             HTMLResponse: The HTML content of the main application page.
         """
     timestamp = int(time.time())
+    print("[DEBUG] At top of file: SERP_API_KEY =", os.environ.get("SERP_API_KEY"))
     return HTMLResponse(content=f"""
     <html>
   <head>
