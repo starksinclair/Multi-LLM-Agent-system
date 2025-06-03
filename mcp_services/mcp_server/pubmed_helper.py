@@ -1,22 +1,26 @@
-from typing import List
 import logging
-
 import requests
+import xml.etree.ElementTree as ET
+import json
+
+from typing import List
 from pydantic import BaseModel
+
+from web_search_helper import SearchResult
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class PubMedArticleData(BaseModel):
+class PubMedResult(BaseModel):
     """
-    Represents aggregated data from multiple PubMed articles.
-
-    This model contains the combined abstracts/summaries from multiple articles
-    along with their source URLs for reference.
+    Represents a single parsed PubMed article with key details,
+    consistent with web search results for frontend display.
     """
-    combined_abstracts: str
-    source_urls: List[str]
+    title: str
+    url: str
+    snippet: str  # Stores the abstract content
+    source: str  # Stores the journal title or "PubMed"
 
 
 class PubMedHelper:
@@ -74,80 +78,123 @@ class PubMedHelper:
             self.logger.error(f"Unexpected response format from PubMed: {e}")
             return []
 
-    async def fetch_article_abstracts(self, ids: List[str]) -> PubMedArticleData:
+    async def fetch_article_abstracts(self, xml_string: str) -> List[PubMedResult]:
         """
-        Fetch full article abstracts for the given PubMed IDs.
+        Parses an XML string response from PubMed E-fetch API into structured PubMedResult objects.
 
-        Uses the NCBI E-utilities E-fetch API to retrieve detailed article information
-        including abstracts, which are then combined into a single text block.
+        This method extracts the Article Title, PMID (for URL construction), Journal Title,
+        and combines all AbstractText sections into a single snippet for each article found in the XML.
 
         Args:
-            ids (List[str]): List of PubMed IDs to fetch abstracts for
+            xml_string (str): The XML response content from the NCBI E-fetch API.
 
         Returns:
-            PubMedArticleData: Contains combined abstracts and source URLs
-
-        Raises:
-            requests.RequestException: If the API request fails
+            List[PubMedResult]: A list of structured PubMed article data.
         """
-        if not ids:
-            return PubMedArticleData(combined_abstracts="", source_urls=[])
+        parsed_articles: List[PubMedResult] = []
 
         try:
-            params = {
-                "db": "pubmed",
-                "id": ",".join(ids),
-                "retmode": "text",
-                "rettype": "abstract"
-            }
+            # Parse the XML string
+            root = ET.fromstring(xml_string)
 
-            response = requests.get(self.e_fetch_url, params=params, timeout=15)
-            response.raise_for_status()
+            for pubmed_article in root.findall('PubmedArticle'):
+                pmid_element = pubmed_article.find('.//MedlineCitation/PMID')
+                pmid = pmid_element.text if pmid_element is not None else 'N/A'
 
-            pubmed_urls = [f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" for pmid in ids]
+                article_title_element = pubmed_article.find('.//Article/ArticleTitle')
+                title = article_title_element.text if article_title_element is not None else 'N/A'
 
-            self.logger.info(f"Successfully fetched abstracts for {len(ids)} articles")
-            return PubMedArticleData(
-                combined_abstracts=response.text,
-                source_urls=pubmed_urls
-            )
+                abstract_texts = []
+                for abs_text_elem in pubmed_article.findall('.//Abstract/AbstractText'):
+                    if abs_text_elem.text:
+                        label = abs_text_elem.get('Label')
+                        text_content = abs_text_elem.text.strip()
+                        if label and text_content:
+                            abstract_texts.append(f"**{label.capitalize()}**: {text_content}")  # Example: Bold label
+                        elif text_content:
+                            abstract_texts.append(text_content)
+                snippet = "\n\n".join(abstract_texts).strip() if abstract_texts else 'No abstract available.'
 
-        except requests.RequestException as e:
-            self.logger.error(f"Error fetching PubMed abstracts: {e}")
-            return PubMedArticleData(
-                combined_abstracts=f"Error fetching abstracts: {str(e)}",
-                source_urls=[f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" for pmid in ids]
-            )
+                journal_title_element = pubmed_article.find('.//Journal/Title')
+                journal_title = journal_title_element.text if journal_title_element is not None else 'PubMed Journal'
 
-    async def search_and_fetch(self, query: str, max_results: int = 5) -> PubMedArticleData:
+                article_url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid != 'N/A' else 'N/A'
+
+                if title != 'N/A' and article_url != 'N/A' and pmid != 'N/A':
+                    parsed_articles.append(PubMedResult(
+                        title=title,
+                        url=article_url,
+                        snippet=snippet,
+                        source=journal_title
+                    ))
+        except ET.ParseError as e:
+            self.logger.error(f"Error parsing PubMed XML: {e}")
+            return []
+        except Exception as e:
+            self.logger.error(f"Unexpected error during PubMed XML parsing: {e}")
+            return []
+
+        return parsed_articles
+
+    async def search_and_fetch(self, query: str, max_results: int = 5) -> SearchResult:
         """
-        Convenience method that combines search and fetch operations.
+        Convenience method that combines search and fetch operations for PubMed.
+
+        This method first searches PubMed for article IDs, then fetches their full XML data,
+        parses it into a list of structured PubMedResult objects, and finally converts this
+        list into a JSON string suitable for direct consumption by the frontend and LLM Agents.
 
         Args:
             query (str): Search query string
             max_results (int): Maximum number of articles to retrieve
 
         Returns:
-            PubMedArticleData: Combined search and fetch results
+            str: A JSON string representing a list of PubMedResult objects.
+                 Returns an empty JSON array string if no articles are found or an error occurs.
+
+        Raises:
+            requests.RequestException: If the API request fails during search or fetch
+            Exception: If there is an unexpected error during XML parsing or article processing
         """
         article_ids = await self.get_article_ids(query, max_results)
         if not article_ids:
-            return PubMedArticleData(
-                combined_abstracts="Error: No articles found for the given query.",
-                source_urls=[]
+            return SearchResult(
+                search_results="No articles found for the given query.",
+                sources_urls=[]
             )
 
-        article_data = await self.fetch_article_abstracts(article_ids)
-        response_text = f"PubMed Search Results for: '{query}'\n"
-        response_text += f"Found {len(article_data.source_urls)} articles\n\n"
-        response_text += "Combined Abstracts:\n"
-        response_text += article_data.combined_abstracts
-        response_text += f"\n\nSource URLs:\n"
-        for i, url in enumerate(article_data.source_urls, 1):
-            response_text += f"{i}. {url}\n"
+        try:
+            params = {
+                "db": "pubmed",
+                "id": ",".join(article_ids),
+                "retmode": "xml",
+                "rettype": "abstract"
+            }
 
-        return PubMedArticleData(
-            combined_abstracts=response_text,
-            source_urls=article_data.source_urls
-        )
+            response = requests.get(self.e_fetch_url, params=params, timeout=20)  # Increased timeout slightly
+            response.raise_for_status()
 
+            xml_string = response.text
+
+            parsed_articles = await self.fetch_article_abstracts(xml_string)
+
+            self.logger.info(f"Successfully fetched and parsed PubMed XML for {len(parsed_articles)} articles")
+
+            data = json.dumps([article.model_dump() for article in parsed_articles])
+            return SearchResult(
+                search_results=data,
+                sources_urls=[article.url for article in parsed_articles]
+            )
+
+        except requests.RequestException as e:
+            self.logger.error(f"Error fetching PubMed XML: {e}")
+            return SearchResult(
+                search_results="Error fetching PubMed articles. Please try again later.",
+                sources_urls=[]
+            )
+        except Exception as e:
+            self.logger.error(f"Unexpected error in PubMed XML processing or article parsing: {e}")
+            return SearchResult(
+                search_results="An unexpected error occurred while processing PubMed articles.",
+                sources_urls=[]
+            )

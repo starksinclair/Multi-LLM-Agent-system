@@ -53,7 +53,7 @@ class GeminiLLM(BaseLLM, ABC):
                 model=self.model,
                 config=genai.types.GenerateContentConfig(
                     temperature=0.3,
-                    max_output_tokens=2000,
+                    max_output_tokens=1000,
                     system_instruction=system_prompt
                 ),
                 contents=prompt

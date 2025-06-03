@@ -70,7 +70,7 @@ class MultiLLMController:
             open_ai_llm = OpenAILLM()
             self.agents = {
                 LLMRole.QUERY_REFINER: MedicalLLMController(LLMRole.QUERY_REFINER, gemini_llm),
-                LLMRole.RESEARCHER: MedicalLLMController(LLMRole.RESEARCHER, deep_seek_llm),
+                LLMRole.RESEARCHER: MedicalLLMController(LLMRole.RESEARCHER, gemini_llm),
                 LLMRole.VALIDATOR: MedicalLLMController(LLMRole.VALIDATOR, gemini_llm)
             }
             logger.info("Multi-LLM agent system initialized successfully")
@@ -81,6 +81,7 @@ class MultiLLMController:
                 role: MedicalLLMController(role, fallback_llm)
                 for role in LLMRole
             }
+
 
     async def refine_initial_query(self, query: str) -> str:
         """
@@ -152,7 +153,6 @@ class MultiLLMController:
         """
         logger.info(f"Processing medical question: {question}")
 
-        # Create comprehensive research prompt that incorporates both sources
         research_prompt = f"""Analyze this medical question using the comprehensive search information provided from multiple sources:
 
         You have a strict limit of approximately **1000 tokens** for the final output. Adjust detail level, brevity, and formatting accordingly to fit this constraint.

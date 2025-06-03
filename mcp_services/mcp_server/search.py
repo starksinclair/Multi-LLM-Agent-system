@@ -134,17 +134,20 @@ async def search_pubmed_literature(arguments: Dict) -> List[TextContent]:
     try:
         article_data = await pubmed_helper.search_and_fetch(query, max_results)
 
-        if not article_data.source_urls:
+        if not article_data.sources_urls:
             logger.warning(f"No PubMed articles found for query: {query}")
             return [TextContent(
                 type="text",
                 text=f"No PubMed articles found for the search query: '{query}'. Try using different or more general search terms."
             )]
 
+        logger.info(f"Successfully completed PubMed search. Found {len(article_data.sources_urls)} articles.")
+
         return [TextContent(
             type="text",
-            text=article_data.combined_abstracts
+            text=article_data.search_results
         )]
+
 
     except Exception as e:
         logger.error(f"Unexpected error in PubMed search: {e}")

@@ -1,6 +1,6 @@
 import os
 import logging
-
+import json
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 import requests
@@ -72,7 +72,7 @@ class WebSearchHelper:
         if response.status_code != 200:
             raise Exception(f"Error fetching data from SerpAPI: {data.get('error', 'Unknown error')}")
         results = []
-        formatted = ["Search Results:\n"]
+        # formatted = [""]
 
         for i, result in enumerate(data.get("organic_results", []), 1):
             title = result.get("title", "")
@@ -87,18 +87,18 @@ class WebSearchHelper:
                 "source": source
             })
 
-            formatted.append(
-                f"Result {i}:\n"
-                f"Title: {title or 'N/A'}\n"
-                f"URL: {url or 'N/A'}\n"
-                f"Source: {source or 'Unknown'}\n"
-                f"Snippet: {snippet or 'No summary available.'}\n"
-                + "-" * 80
-            )
-
-        formatted_text = "\n".join(formatted)
+        #     formatted.append(
+        #         f"Result {i}:\n"
+        #         f"Title: {title or 'N/A'}\n"
+        #         f"URL: {url or 'N/A'}\n"
+        #         f"Source: {source or 'Unknown'}\n"
+        #         f"Snippet: {snippet or 'No summary available.'}\n"
+        #         + "-" * 80
+        #     )
+        #
+        # formatted_text = "\n".join(formatted)
 
         return SearchResult(
-            search_results=formatted_text,
-            sources_urls=[result.get("link", "") for result in data.get("organic_results", [])]
+            search_results=json.dumps(results),
+            sources_urls=[result.get("link", "") for result in data.get("organic_results", [])],
         )

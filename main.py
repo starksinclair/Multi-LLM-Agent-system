@@ -135,8 +135,19 @@ def index():
                 <span class="truncate">Submit</span>
               </button>
             </div>
-            <h2 class="text-[#111518] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Answers</h2>
+           <h2 class="text-[#111518] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">Web Search Results</h2>
+            <div id="webSearchResultsContainer" class="text-[#111518] text-base font-normal leading-normal pb-3 pt-1 px-4 border border-[#dce1e5] rounded-lg p-4 bg-gray-50 overflow-auto max-h-96">
+                No web search results yet.
+            </div>
+
+            <h2 class="text-[#111518] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">PubMed Search Results</h2>
+            <div id="pubmedSearchResultsContainer" class="text-[#111518] text-base font-normal leading-normal pb-3 pt-1 px-4 border border-[#dce1e5] rounded-lg p-4 bg-gray-50 overflow-auto max-h-96">
+                No PubMed search results yet.
+            </div>
+
+            <h2 class="text-[#111518] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">AI Overview</h2>
             <p id="answerText" class="text-[#111518] text-base font-normal leading-normal pb-3 pt-1 px-4">Answers will appear here after you submit your question.</p>
+            
           </div>
         </div>
       </div>
