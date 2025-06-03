@@ -1,4 +1,5 @@
 import logging
+import os
 
 import time
 
@@ -17,7 +18,9 @@ app = FastAPI()
 app.mount("/utils", StaticFiles(directory="utils"), name="utils")
 
 client = MCPClient()
-
+if os.environ.get("ENV") != "production":
+    from dotenv import load_dotenv
+    load_dotenv()
 env = os.environ.get("ENV", "development")
 if env == "production":
     base_url = "https://multi-llm-agent-system.onrender.com"

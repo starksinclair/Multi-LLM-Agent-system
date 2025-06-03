@@ -99,6 +99,25 @@ GEMINI_API_KEY="your_gemini_api_key_here"
     http://localhost:8000
 
     ```
+### Dynamic Base URL for Home and About Pages
+
+HealthConnect sets the base URL for navigation links (Home, About) dynamically based on the `ENV` environment variable:
+
+- If `ENV=production`, the base URL is `https://multi-llm-agent-system.onrender.com`
+- If `ENV=development`, the base URL is `http://0.0.0.0:8000`
+
+This ensures that navigation links always point to the correct environment, whether running locally or in production.
+
+Example in `main.py`:
+```python
+import os
+
+env = os.environ.get("ENV", "development")
+if env == "production":
+    base_url = "https://multi-llm-agent-system.onrender.com"
+else:
+    base_url = "http://0.0.0.0:8000"
+```
 
 ## 🌐 API Endpoints
 
