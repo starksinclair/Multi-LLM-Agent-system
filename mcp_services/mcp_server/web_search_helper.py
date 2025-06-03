@@ -3,18 +3,20 @@ import logging
 import json
 from typing import Optional
 
-from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 import requests
 from pydantic import BaseModel
 
-load_dotenv()
+if os.environ.get("ENV") != "production":
+    from dotenv import load_dotenv
+    load_dotenv()
 mcp = FastMCP("web-search")
 URL = "https://serpapi.com/search"
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 
 class SearchResult(BaseModel):
