@@ -39,7 +39,7 @@ class WebSearchHelper:
         print("SERPAPI_KEY:", self.serpapi_key, os.environ.get("SERPAPI_KEY"))
         # if not self.serpapi_key:
         #     raise ValueError("SerpAPI key must be provided.")
-        logger.info("WebSearchHelper initialized with SerpAPI key.", self.serpapi_key)
+        logger.info(f"WebSearchHelper initialized with SerpAPI key: {self.serpapi_key}")
 
     async def search_and_format_results(self, query: str) -> SearchResult:
         """
