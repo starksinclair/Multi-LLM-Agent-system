@@ -209,69 +209,97 @@ class MultiLLMController:
 
         Synthesize the information from both sources into a coherent, evidence-based response."""
 
-        research_task = LLMTask(
-            task_id="research_001",
-            description="Research medical question using web and literature sources",
-            prompt=research_prompt,
-            system_prompt=self.agents[LLMRole.RESEARCHER].system_prompts[LLMRole.RESEARCHER],
-            requires_search=True
-        )
+        try:
+            research_task = LLMTask(
+                task_id="research_001",
+                description="Research medical question using web and literature sources",
+                prompt=research_prompt,
+                system_prompt=self.agents[LLMRole.RESEARCHER].system_prompts[LLMRole.RESEARCHER],
+                requires_search=True
+            )
 
-        research_response = await self.agents[LLMRole.RESEARCHER].execute_task(research_task)
-        if not research_response or not research_response.content.strip():
-            raise RuntimeError("Empty research response — cannot proceed to validation")
+            research_response = await self.agents[LLMRole.RESEARCHER].execute_task(research_task)
+            if not research_response or not research_response.content.strip():
+                raise RuntimeError("Empty research response — cannot proceed to validation")
 
-        html_wrapper = generator.generate_html()
-        validation_task = LLMTask(
-            task_id="validation_001",
-            description="Validate final medical response",
-            prompt=f"""
-            You are validating a medical response to ensure it meets safety and quality standards before presenting it to users.
+            html_wrapper = generator.generate_html()
+            validation_task = LLMTask(
+                task_id="validation_001",
+                description="Validate final medical response",
+                prompt=f"""
+                        You are validating a medical response to ensure it meets safety and quality standards before presenting it to users.
 
-            You have a strict limit of approximately **1000 tokens** for the final output. Adjust the level of detail, brevity, and formatting accordingly to fit within this limit.
+                        You have a strict limit of approximately **1000 tokens** for the final output. Adjust the level of detail, brevity, and formatting accordingly to fit within this limit.
 
-            Here is the draft response based on web search and literature review:
+                        Here is the draft response based on web search and literature review:
 
-            {research_response.content}
-            
-            REQUIREMENTS:
-            1. Format your final output using HTML only — no markdown or explanations.
-            2. Use Tailwind CSS classes and structure your content freely as appropriate for the question.
-            3. Wrap your output with this exact template (do NOT change structure or classes):
-            
-            {html_wrapper}
-            
-            4. Replace {{YOUR_BODY_HTML_HERE}} with your validated content using valid HTML elements.
-            5. Ensure the disclaimers remain exactly as shown at the top and bottom.
-            
-            Return only the final rendered HTML.
-            """,
-        system_prompt=self.agents[LLMRole.VALIDATOR].system_prompts[LLMRole.VALIDATOR],
-        )
-        validation_response = await self.agents[LLMRole.VALIDATOR].execute_task(validation_task)
-        logger.info("Medical question processing completed")
+                        {research_response.content}
 
-        return AgentResult(
-            question=question,
-            web_search_results=web_search_results,
-            pubmed_results=pubmed_results,
-            agent_responses=AgentResponses(
-                query_refinement=AgentResponse(
-                    content=question,
-                    provider=self.agents[LLMRole.QUERY_REFINER].llm.get_provider().value,
-                    model=self.agents[LLMRole.QUERY_REFINER].llm.model
+                        REQUIREMENTS:
+                        1. Format your final output using HTML only — no markdown or explanations.
+                        2. Use Tailwind CSS classes and structure your content freely as appropriate for the question.
+                        3. Wrap your output with this exact template (do NOT change structure or classes):
+
+                        {html_wrapper}
+
+                        4. Replace {{YOUR_BODY_HTML_HERE}} with your validated content using valid HTML elements.
+                        5. Ensure the disclaimers remain exactly as shown at the top and bottom.
+
+                        Return only the final rendered HTML.
+                        """,
+                system_prompt=self.agents[LLMRole.VALIDATOR].system_prompts[LLMRole.VALIDATOR],
+            )
+            validation_response = await self.agents[LLMRole.VALIDATOR].execute_task(validation_task)
+            logger.info("Medical question processing completed")
+
+            return AgentResult(
+                question=question,
+                web_search_results=web_search_results,
+                pubmed_results=pubmed_results,
+                agent_responses=AgentResponses(
+                    query_refinement=AgentResponse(
+                        content=question,
+                        provider=self.agents[LLMRole.QUERY_REFINER].llm.get_provider().value,
+                        model=self.agents[LLMRole.QUERY_REFINER].llm.model
+                    ),
+                    research=AgentResponse(
+                        content=research_response.content,
+                        provider=research_response.provider.value,
+                        model=research_response.model
+                    ),
+                    validation=AgentResponse(
+                        content=validation_response.content,
+                        provider=validation_response.provider.value,
+                        model=validation_response.model
+                    ),
                 ),
-                research=AgentResponse(
-                    content=research_response.content,
-                    provider=research_response.provider.value,
-                    model=research_response.model
+                final_answer=validation_response.content,
+                timestamp=datetime.now(),
+            )
+        except Exception as error:
+            logger.error(f"Model failed or is overloaded: {error}")
+            message = "The model is currently overloaded due to a high volume of requests. Please try again during off peak hours."
+            return AgentResult(
+                question=question,
+                web_search_results=web_search_results,
+                pubmed_results=pubmed_results,
+                agent_responses=AgentResponses(
+                    query_refinement=AgentResponse(
+                        content=question,
+                        provider=self.agents[LLMRole.QUERY_REFINER].llm.get_provider().value,
+                        model=self.agents[LLMRole.QUERY_REFINER].llm.model
+                    ),
+                    research=AgentResponse(
+                        content=message,
+                        provider="N/A",
+                        model="N/A"
+                    ),
+                    validation=AgentResponse(
+                        content=message,
+                        provider="N/A",
+                        model="N/A"
+                    ),
                 ),
-                validation=AgentResponse(
-                    content=validation_response.content,
-                    provider=validation_response.provider.value,
-                    model=validation_response.model
-                ),
-            ),
-            final_answer=validation_response.content,
-            timestamp=datetime.now(),
-        )
+                final_answer=message,
+                timestamp=datetime.now(),
+            )

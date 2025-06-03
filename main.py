@@ -1,5 +1,5 @@
 import logging
-import os
+
 import time
 
 from fastapi import FastAPI, HTTPException
@@ -55,10 +55,6 @@ async def run_mcp(request: QueryRequest):
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
     try:
         logger.info(f"Received query: {request.query}")
-        import os
-
-        print("ENV KEYS IN CONTAINER:", list(os.environ.keys()))
-        print("SERP_API_KEY:", os.environ.get("SERP_API_KEY"))
 
         result = await client.run(request.query)
         logger.info(f"Search results: DONE")
@@ -81,7 +77,7 @@ def index():
             HTMLResponse: The HTML content of the main application page.
         """
     timestamp = int(time.time())
-    print("[DEBUG] At top of file: SERP_API_KEY =", os.environ.get("SERP_API_KEY"))
+
     return HTMLResponse(content=f"""
     <html>
   <head>
