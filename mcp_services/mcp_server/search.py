@@ -29,8 +29,6 @@ if os.environ.get("ENV") != "production":
     load_dotenv()
 
 pubmed_helper = PubMedHelper()
-web_search_helper = WebSearchHelper(api_key=os.environ.get("SERP_API_KEY"))
-
 
 @app.list_tools()
 async def handle_list_tools() -> List[Tool]:
@@ -181,6 +179,7 @@ async def web_search(arguments: Dict) -> List[TextContent]:
         )]
 
     logger.info(f"Starting web search for query: '{query}'")
+    web_search_helper = WebSearchHelper()
     data = await web_search_helper.search_and_format_results(query)
     if not data.search_results:
         logger.warning(f"No web search results found for query: {query}")
