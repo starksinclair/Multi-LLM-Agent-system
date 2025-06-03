@@ -1,4 +1,5 @@
 import asyncio
+import os
 from typing import List, Dict
 import logging
 
@@ -23,8 +24,12 @@ app = Server("mcp-pubmed")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+if os.environ.get("ENV") != "production":
+    from dotenv import load_dotenv
+    load_dotenv()
+
 pubmed_helper = PubMedHelper()
-web_search_helper = WebSearchHelper()
+web_search_helper = WebSearchHelper(api_key=os.environ.get("SERP_API_KEY"))
 
 
 @app.list_tools()

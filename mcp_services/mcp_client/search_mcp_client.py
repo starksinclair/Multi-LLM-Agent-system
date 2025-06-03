@@ -104,7 +104,6 @@ class MCPClient:
         try:
             await self.connect_to_server("mcp_services/mcp_server/search.py")
 
-            logger.info(f"Available env vars: {list(os.environ.keys())}")
             refined_query = await controller.refine_initial_query(query)
             logger.info(f"Refined query: {refined_query}")
 
