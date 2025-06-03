@@ -20,7 +20,7 @@ class DeepSeekLLM(BaseLLM):
    to connect to the DeepSeek API endpoint.
     """
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "deepseek-chat"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "deepseek-reasoner"):
         self.model = model
         self.client = OpenAI(api_key=api_key or os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com")
 
@@ -54,7 +54,7 @@ class DeepSeekLLM(BaseLLM):
                 model=self.model,
                 messages=messages,
                 max_tokens=1000,
-                temperature=1.0
+                temperature=0.7,
             )
 
             return LLMResponse(

@@ -70,8 +70,8 @@ class MultiLLMController:
             open_ai_llm = OpenAILLM()
             self.agents = {
                 LLMRole.QUERY_REFINER: MedicalLLMController(LLMRole.QUERY_REFINER, gemini_llm),
-                LLMRole.RESEARCHER: MedicalLLMController(LLMRole.RESEARCHER, gemini_llm),
-                LLMRole.VALIDATOR: MedicalLLMController(LLMRole.VALIDATOR, deep_seek_llm)
+                LLMRole.RESEARCHER: MedicalLLMController(LLMRole.RESEARCHER, deep_seek_llm),
+                LLMRole.VALIDATOR: MedicalLLMController(LLMRole.VALIDATOR, gemini_llm)
             }
             logger.info("Multi-LLM agent system initialized successfully")
         except Exception as error:
@@ -105,17 +105,22 @@ class MultiLLMController:
         )
 
         query_refiner_agent = self.agents[LLMRole.QUERY_REFINER]
-        refinement_response = await query_refiner_agent.execute_task(refinement_task)
-        if not refinement_response or not refinement_response.content:
-            logger.warning("Refinement response is empty, returning original query")
+        try:
+            refinement_response = await query_refiner_agent.execute_task(refinement_task)
+            if not refinement_response or not refinement_response.content:
+                logger.warning("Refinement response is empty, returning original query")
+                return query
+
+            refined_query = refinement_response.content.strip()
+            if refined_query.startswith('"') and refined_query.endswith('"'):
+                refined_query = refined_query[1:-1]
+            return refined_query if refined_query else query
+        except Exception as error:
+            if "503" in str(error) and "overloaded" in str(error).lower():
+                logger.error(f"Gemini API overloaded: {error}. Returning original query.")
+                return query
+            logger.error(f"Error during query refinement: {error}")
             return query
-
-        refined_query = refinement_response.content.strip()
-        # remove quotes if Gemini wraps the output in them
-        if refined_query.startswith('"') and refined_query.endswith('"'):
-            refined_query = refined_query[1:-1]
-
-        return refined_query if refined_query else query
 
     async def process_medical_question(self, question: str, web_search_results: Optional[str] = None,
                                        pubmed_results: Optional[str] = None) -> AgentResult:
@@ -217,18 +222,8 @@ class MultiLLMController:
             Here is the draft response based on web search and literature review:
 
             {research_response.content}
-
-            Perform the following checks:
-            1. Do **not** provide specific medical diagnoses or treatment advice.
-            2. Include a strong disclaimer advising users to consult a qualified healthcare professional.
-            3. Ensure the content is safe, medically accurate, and educational — not misleading or harmful.
-            4. Use clear, concise language suitable for a general audience. Briefly explain any medical terms if needed.
-            5. Keep the content focused and avoid unnecessary elaboration.
-            6. If the response references both web sources and medical literature, ensure proper context is maintained.
-
-            Then, transform the validated content into well-structured **HTML with clean, beautiful in-line CSS styling** for display in a user interface.
-            ⚠️ Do not use markdown, triple backticks, or code blocks of any kind. Only return the raw HTML. Do not wrap it in ```html or any other formatting.
-
+            
+            return the validated content in a well-structured HTML format with inline CSS styling following these guidelines:
             ### Formatting & Styling Instructions:
             - Use `<h2>` tags for section headings like **Symptoms**, **Potential Causes**, **Treatment Options**, **When to Seek Medical Care**
             - Use bullet points (`<ul><li>`) where appropriate
@@ -251,7 +246,7 @@ class MultiLLMController:
         return AgentResult(
             question=question,
             web_search_results=web_search_results,
-            pubmed_results=pubmed_results,  # Include PubMed results in the result
+            pubmed_results=pubmed_results,
             agent_responses=AgentResponses(
                 query_refinement=AgentResponse(
                     content=question,

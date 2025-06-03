@@ -4,6 +4,7 @@ MCP Web Search Client Module
 This module provides a client interface for processing queries through a multi-LLM
 medical agent system with MCP web search capabilities.
 """
+import asyncio
 import logging
 from contextlib import AsyncExitStack
 from typing import Optional
@@ -105,14 +106,17 @@ class MCPClient:
             refined_query = await controller.refine_initial_query(query)
             logger.info(f"Refined query: {refined_query}")
 
-            pubmed_search_results = await self.session.call_tool(
+            pubmed_task = self.session.call_tool(
                 name="search_pubmed",
                 arguments={"query": refined_query, "max_results": 5}
             )
-
-            web_search_results = await self.session.call_tool(
+            web_search_task = self.session.call_tool(
                 name="web_search",
                 arguments={"query": refined_query}
+            )
+            pubmed_search_results, web_search_results = await asyncio.gather(
+                pubmed_task,
+                web_search_task
             )
 
             logger.info(f"PubMed search completed successfully")
