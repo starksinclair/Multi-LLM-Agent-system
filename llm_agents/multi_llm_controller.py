@@ -2,6 +2,7 @@ from typing import Dict, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
+from utils.html_template_generator import HTMLResponseGenerator
 from .llm_controller import MedicalLLMController, LLMRole, LLMTask
 from .gemini import GeminiLLM
 from .deep_seek import DeepSeekLLM
@@ -12,7 +13,7 @@ from .openai import OpenAILLM
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
+generator = HTMLResponseGenerator()
 class AgentResponse(BaseModel):
     """
     Represents a standardized response from an individual LLM agent.
@@ -83,7 +84,7 @@ class MultiLLMController:
             }
 
 
-    async def refine_initial_query(self, query: str) -> str:
+    async def refine_initial_query(self, query: str) -> AgentResponse:
         """
         Refines the initial user query using the QUERY_REFINER agent to optimize it for web search.
 
@@ -107,21 +108,23 @@ class MultiLLMController:
 
         query_refiner_agent = self.agents[LLMRole.QUERY_REFINER]
         try:
-            refinement_response = await query_refiner_agent.execute_task(refinement_task)
-            if not refinement_response or not refinement_response.content:
-                logger.warning("Refinement response is empty, returning original query")
-                return query
-
-            refined_query = refinement_response.content.strip()
-            if refined_query.startswith('"') and refined_query.endswith('"'):
-                refined_query = refined_query[1:-1]
-            return refined_query if refined_query else query
+            response = await query_refiner_agent.execute_task(refinement_task)
+            refined = response.content.strip()
+            final_query = refined if refined else query
+            return AgentResponse(
+                content=final_query,
+                provider=response.provider.value,
+                model=response.model
+            )
         except Exception as error:
-            if "503" in str(error) and "overloaded" in str(error).lower():
-                logger.error(f"Gemini API overloaded: {error}. Returning original query.")
-                return query
-            logger.error(f"Error during query refinement: {error}")
-            return query
+            logger.error(f"Gemini API overloaded: {error}. Returning original query.")
+            return  AgentResponse(
+            content=query,
+            provider=query_refiner_agent.llm.get_provider().value,
+            model=query_refiner_agent.llm.model
+        )
+            # logger.error(f"Error during query refinement: {error}")
+            # return query
 
     async def process_medical_question(self, question: str, web_search_results: Optional[str] = None,
                                        pubmed_results: Optional[str] = None) -> AgentResult:
@@ -136,7 +139,7 @@ class MultiLLMController:
            aiming for a concise output (approx. 1000 tokens).
 
         2. Sends the RESEARCHER's output to a VALIDATOR agent to ensure safety,
-           accuracy, disclaimers, and formats the final answer into well-structured HTML with inline CSS (approx. 1000 tokens).
+           accuracy, disclaimers, and formats the final answer into well-structured HTML with Tailwind (approx. 1000 tokens).
 
         3. Compiles all intermediate and final responses into an `AgentResult` object.
 
@@ -150,6 +153,10 @@ class MultiLLMController:
             AgentResult: A comprehensive object containing the original question,
                          search results, PubMed results, responses from each agent,
                          and the final validated HTML answer.
+
+        Raises:
+            RuntimeError: If the research response is empty or invalid.
+            Exception: If any error occurs during the processing stages.
         """
         logger.info(f"Processing medical question: {question}")
 
@@ -210,7 +217,10 @@ class MultiLLMController:
         )
 
         research_response = await self.agents[LLMRole.RESEARCHER].execute_task(research_task)
+        if not research_response or not research_response.content.strip():
+            raise RuntimeError("Empty research response — cannot proceed to validation")
 
+        html_wrapper = generator.generate_html()
         validation_task = LLMTask(
             task_id="validation_001",
             description="Validate final medical response",
@@ -223,20 +233,17 @@ class MultiLLMController:
 
             {research_response.content}
             
-            return the validated content in a well-structured HTML format with inline CSS styling following these guidelines:
-            ### Formatting & Styling Instructions:
-            - Use `<h2>` tags for section headings like **Symptoms**, **Potential Causes**, **Treatment Options**, **When to Seek Medical Care**
-            - Use bullet points (`<ul><li>`) where appropriate
-            - Add soft background colors, padding, and rounded corners to section containers
-            - Use a readable, professional font (e.g., `sans-serif`), and ensure responsive layout for mobile screens
-            - Style the disclaimer with italicized text, a subtle background color, and bold red warning text
-            - Do **not** use markdown, triple backticks, or any code block formatting
-            - Return **only the raw HTML output**, with in-line CSS — no commentary or extra formatting
-
-            Place the following **disclaimer at both the top and bottom** of the content:
-
-            > <strong>This information is for educational purposes only and should not be considered medical advice. Always consult a qualified healthcare professional for diagnosis and treatment.</strong>
-             ⚠️ Do not use markdown, triple backticks, or code blocks of any kind. Only return the raw HTML. Do not wrap it in ```html or any other formatting.
+            REQUIREMENTS:
+            1. Format your final output using HTML only — no markdown or explanations.
+            2. Use Tailwind CSS classes and structure your content freely as appropriate for the question.
+            3. Wrap your output with this exact template (do NOT change structure or classes):
+            
+            {html_wrapper}
+            
+            4. Replace {{YOUR_BODY_HTML_HERE}} with your validated content using valid HTML elements.
+            5. Ensure the disclaimers remain exactly as shown at the top and bottom.
+            
+            Return only the final rendered HTML.
             """,
         system_prompt=self.agents[LLMRole.VALIDATOR].system_prompts[LLMRole.VALIDATOR],
         )

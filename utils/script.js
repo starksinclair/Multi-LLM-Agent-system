@@ -1,3 +1,11 @@
+function isValidJSON(str) {
+    try {
+        JSON.parse(str);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
 
 document.getElementById("askBtn").addEventListener("click", async () => {
     const question = document.getElementById("question").value.trim();
@@ -29,7 +37,7 @@ document.getElementById("askBtn").addEventListener("click", async () => {
                 html = sanitize(`No ${title} found for this query.`);
             }
             containerElement.innerHTML = html;
-        }
+    }
 
     console.log("Question submitted:", question);
     if (!question) {
@@ -54,18 +62,25 @@ document.getElementById("askBtn").addEventListener("click", async () => {
             answerText.textContent = "Error: " + (data.error || "Failed to fetch answer.");
         }
         console.log("Response received:", data, "Final answer:", data.final_answer);
+
         if (data.web_search_results) {
-            const parsedWebResults = JSON.parse(data.web_search_results);
-            console.log("parsed", parsedWebResults);
-            renderSearchResults(webSearchResultsContainer, parsedWebResults, 'Web results')
+            if (isValidJSON(data.web_search_results)) {
+                const parsedWebResults = JSON.parse(data.web_search_results);
+                renderSearchResults(webSearchResultsContainer, parsedWebResults, 'Web results');
+            } else {
+                webSearchResultsContainer.innerHTML = sanitize(data.web_search_results);
+            }
         } else {
             webSearchResultsContainer.innerHTML = DOMPurify.sanitize('No web search results available.');
         }
 
         if (data.pubmed_results) {
-            const parsedPubmedResults = JSON.parse(data.pubmed_results);
-            renderSearchResults(pubmedSearchResultsContainer, parsedPubmedResults, 'PubMed results')
-            // pubmedSearchResultsContainer.innerHTML = sanitize( data.pubmed_results || '')
+            if (isValidJSON(data.pubmed_results)) {
+                const parsedPubmedResults = JSON.parse(data.pubmed_results);
+                renderSearchResults(pubmedSearchResultsContainer, parsedPubmedResults, 'PubMed results');
+            } else {
+                pubmedSearchResultsContainer.innerHTML = sanitize(data.pubmed_results);
+            }
         } else {
             pubmedSearchResultsContainer.textContent = 'No PubMed search results found.';
         }

@@ -16,9 +16,9 @@ from web_search_helper import WebSearchHelper
 from pubmed_helper import PubMedHelper
 
 fastApi = FastAPI()
-# Initialize the MCP server
+
 app = Server("mcp-pubmed")
-# mcp = FastMCP("mcp_pubmed")
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

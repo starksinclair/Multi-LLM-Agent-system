@@ -108,11 +108,11 @@ class MCPClient:
 
             pubmed_task = self.session.call_tool(
                 name="search_pubmed",
-                arguments={"query": refined_query, "max_results": 5}
+                arguments={"query": refined_query.content, "max_results": 5}
             )
             web_search_task = self.session.call_tool(
                 name="web_search",
-                arguments={"query": refined_query}
+                arguments={"query": refined_query.content}
             )
             pubmed_search_results, web_search_results = await asyncio.gather(
                 pubmed_task,
@@ -120,9 +120,7 @@ class MCPClient:
             )
 
             logger.info(f"PubMed search completed successfully")
-            data = await controller.process_medical_question(query, web_search_results.content[0].text, pubmed_search_results.content[0].text)
-
-            return data
+            return await controller.process_medical_question(refined_query.content, web_search_results.content[0].text, pubmed_search_results.content[0].text)
 
         except Exception as e:
             logger.error(f"Error in run method: {e}")

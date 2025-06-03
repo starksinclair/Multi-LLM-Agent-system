@@ -72,7 +72,7 @@ class WebSearchHelper:
         if response.status_code != 200:
             raise Exception(f"Error fetching data from SerpAPI: {data.get('error', 'Unknown error')}")
         results = []
-        # formatted = [""]
+
 
         for i, result in enumerate(data.get("organic_results", []), 1):
             title = result.get("title", "")
@@ -86,17 +86,6 @@ class WebSearchHelper:
                 "snippet": snippet,
                 "source": source
             })
-
-        #     formatted.append(
-        #         f"Result {i}:\n"
-        #         f"Title: {title or 'N/A'}\n"
-        #         f"URL: {url or 'N/A'}\n"
-        #         f"Source: {source or 'Unknown'}\n"
-        #         f"Snippet: {snippet or 'No summary available.'}\n"
-        #         + "-" * 80
-        #     )
-        #
-        # formatted_text = "\n".join(formatted)
 
         return SearchResult(
             search_results=json.dumps(results),
