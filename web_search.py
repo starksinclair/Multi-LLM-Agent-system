@@ -35,7 +35,7 @@ def refine_search_query(query: str) -> str:
         str: The refined medical search query optimized for SerpAPI.
     """
 
-    client = genai.Client(api_key="AIzaSyAYLsAGikd_pbdgJGHfsDABHuE76efHqLg")
+    client = genai.Client(api_key=)
 
     # Construct the prompt for Gemini, emphasizing medical context and SerpAPI optimization
     medical_refinement_prompt = (
