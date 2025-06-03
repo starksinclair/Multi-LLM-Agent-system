@@ -42,6 +42,11 @@ When a user submits a medical question:
 
 * The final HTML answer is returned to the user's browser.
 
+### Error Handling for Model Overload
+
+If the query refinement model (e.g., Gemini) is overloaded or returns a 503 Service Unavailable error, HealthConnect will automatically fall back to using the original user query without refinement. This ensures the system remains robust and continues processing even if a specific LLM agent is temporarily unavailable.
+
+
 ## 🚀 Getting Started
 
 To get HealthConnect up and running on your local machine, follow these steps:

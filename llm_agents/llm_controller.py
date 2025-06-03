@@ -113,4 +113,11 @@ class MedicalLLMController:
         response = self.llm.generate_response(full_prompt, system_prompt)
         logger.info(f"Agent {self.role.value} ({self.llm.get_provider().value}) completed task: {task.task_id}")
 
+        # Raise an exception if the response contains an error pattern
+        if (
+                isinstance(response.content, str)
+                and ("error" in response.content.lower() or "503" in response.content)
+        ):
+            raise RuntimeError(f"LLM error: {response.content}")
+
         return response

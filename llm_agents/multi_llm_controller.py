@@ -118,6 +118,7 @@ class MultiLLMController:
             )
         except Exception as error:
             logger.error(f"Gemini API overloaded: {error}. Returning original query.")
+            # If the refinement fails or model is overloaded, return the original query
             return  AgentResponse(
             content=query,
             provider=query_refiner_agent.llm.get_provider().value,
