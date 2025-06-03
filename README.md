@@ -44,8 +44,11 @@ When a user submits a medical question:
 
 ### Error Handling for Model Overload
 
-If the query refinement model (e.g., Gemini) is overloaded or returns a 503 Service Unavailable error, HealthConnect will automatically fall back to using the original user query without refinement. This ensures the system remains robust and continues processing even if a specific LLM agent is temporarily unavailable.
+* If the query refinement model (e.g., Gemini) is overloaded or returns a 503 Service Unavailable error, HealthConnect will automatically fall back to using the original user query without refinement. This ensures the system remains robust and continues processing even if a specific LLM agent is temporarily unavailable.
 
+* If the research or validation model (e.g., Gemini, DeepSeek) is overloaded or returns a 503 Service Unavailable error, HealthConnect will gracefully handle the error by returning a clear message to the user:  
+"The model is currently overloaded due to a high volume of requests. Please try again during off peak hours."  
+This ensures the system remains robust and does not break the user flow, even if a specific LLM agent is temporarily unavailable.
 
 ## 🚀 Getting Started
 
