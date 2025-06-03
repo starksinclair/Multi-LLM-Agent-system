@@ -1,6 +1,8 @@
 import os
 import logging
 import json
+from typing import Optional
+
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 import requests
@@ -34,8 +36,9 @@ class WebSearchHelper:
     that can be consumed by LLM agents.
     """
 
-    def __init__(self, ) -> None:
-        self.serpapi_key =  os.environ.get("SERP_API_KEY")
+    def __init__(self, api_key: Optional[str] = None):
+        # self.serpapi_key =  os.environ.get("SERP_API_KEY")
+        self.serpapi_key = api_key or os.environ.get("SERP_API_KEY")
         if not self.serpapi_key:
             raise ValueError("SerpAPI key must be provided.")
         logger.info("Initialized WebSearchHelper with SerpAPI key.")
