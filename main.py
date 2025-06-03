@@ -18,7 +18,11 @@ app.mount("/utils", StaticFiles(directory="utils"), name="utils")
 
 client = MCPClient()
 
-
+env = os.environ.get("ENV", "development")
+if env == "production":
+    base_url = "https://multi-llm-agent-system.onrender.com"
+else:
+    base_url = "http://0.0.0.0:8000"
 class QueryRequest(BaseModel):
     """
        Pydantic model for validating the structure of incoming query requests.
@@ -113,8 +117,8 @@ def index():
           </div>
           <div class="flex flex-1 justify-end gap-8">
             <div class="flex items-center gap-9">
-              <a class="text-[#111518] text-sm font-medium leading-normal" href="http://0.0.0.0:8000/#">Home</a>
-                <a class="text-[#111518] text-sm font-medium leading-normal" href="http://0.0.0.0:8000/about">About</a>
+              <a class="text-[#111518] text-sm font-medium leading-normal" href="{base_url}/#">Home</a>
+                <a class="text-[#111518] text-sm font-medium leading-normal" href="{base_url}/about">About</a>
             </div>
           </div>
         </header>
@@ -173,7 +177,7 @@ def about():
         Returns:
             HTMLResponse: The HTML content of the About page.
         """
-    return HTMLResponse(content="""
+    return HTMLResponse(content=f"""
         <html>
       <head>
         <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
@@ -208,8 +212,8 @@ def about():
               </div>
               <div class="flex flex-1 justify-end gap-8">
                 <div class="flex items-center gap-9">
-                  <a class="text-[#111518] text-sm font-medium leading-normal" href="http://0.0.0.0:8000/#">Home</a>
-                    <a class="text-[#111518] text-sm font-medium leading-normal" href="http://0.0.0.0:8000/about">About</a>
+                  <a class="text-[#111518] text-sm font-medium leading-normal" href="{base_url}/#">Home</a>
+                    <a class="text-[#111518] text-sm font-medium leading-normal" href="{base_url}/about">About</a>
                 </div>
               </div>
             </header>

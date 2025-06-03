@@ -38,10 +38,7 @@ class WebSearchHelper:
     """
 
     def __init__(self, api_key: Optional[str] = None):
-        # self.serpapi_key =  os.environ.get("SERP_API_KEY")
-        print("ENV LOADEDs: SERP_API_KEY =", os.environ.get("SERP_API_KEY"))
         self.serpapi_key = api_key or os.environ.get("SERP_API_KEY")
-        print(self.serpapi_key, "serpapi key")
         if not self.serpapi_key:
             raise ValueError("SerpAPI key must be provided.")
         logger.info("Initialized WebSearchHelper with SerpAPI key.")
