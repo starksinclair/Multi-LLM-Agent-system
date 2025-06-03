@@ -34,12 +34,11 @@ class WebSearchHelper:
     that can be consumed by LLM agents.
     """
 
-    def __init__(self) -> None:
-        self.serpapi_key =  os.environ.get("SERPAPI_KEY")
-        print("SERPAPI_KEY:", self.serpapi_key, os.environ.get("SERPAPI_KEY"))
-        # if not self.serpapi_key:
-        #     raise ValueError("SerpAPI key must be provided.")
-        logger.info(f"WebSearchHelper initialized with SerpAPI key: {self.serpapi_key}")
+    def __init__(self, ) -> None:
+        self.serpapi_key =  os.environ.get("SERP_API_KEY")
+        if not self.serpapi_key:
+            raise ValueError("SerpAPI key must be provided.")
+        logger.info("Initialized WebSearchHelper with SerpAPI key.")
 
     async def search_and_format_results(self, query: str) -> SearchResult:
         """
