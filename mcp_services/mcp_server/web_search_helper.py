@@ -12,7 +12,6 @@ load_dotenv()
 mcp = FastMCP("web-search")
 URL = "https://serpapi.com/search"
 
-SERP_API_KEY = os.environ.get("SERP_API_KEY")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,12 +37,12 @@ class WebSearchHelper:
     that can be consumed by LLM agents.
     """
 
-    # def __init__(self, api_key: Optional[str] = None):
-    #     # self.serpapi_key =  os.environ.get("SERP_API_KEY")
-    #     self.serpapi_key = api_key or os.environ.get("SERP_API_KEY")
-    #     if not self.serpapi_key:
-    #         raise ValueError("SerpAPI key must be provided.")
-    #     logger.info("Initialized WebSearchHelper with SerpAPI key.")
+    def __init__(self, api_key: Optional[str] = None):
+        # self.serpapi_key =  os.environ.get("SERP_API_KEY")
+        self.serpapi_key = api_key or os.environ.get("SERP_API_KEY")
+        if not self.serpapi_key:
+            raise ValueError("SerpAPI key must be provided.")
+        logger.info("Initialized WebSearchHelper with SerpAPI key.")
 
     async def search_and_format_results(self, query: str) -> SearchResult:
         """
@@ -64,11 +63,9 @@ class WebSearchHelper:
             Exception: If the HTTP response status code is not 200 or if an error
                        message is returned by the SerpAPI.
         """
-        if not SERP_API_KEY:
-            raise ValueError("SerpAPI key must be set in the environment variable.")
         params = {
             'q': query,
-            "api_key": SERP_API_KEY,
+            "api_key": self.serpapi_key,
             "engine": "google",
             "num": 5,
             "safe": "active",
